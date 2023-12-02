@@ -1,80 +1,60 @@
 ﻿using System;
-using System.IO;
 using System.Threading;
 
-class Program
+class BaboonCanyonSimulation
 {
-    static int[] arrayA;
-    static int[] arrayC;
-    static int result = 0;
-    static object lockObject = new object();
+    static SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+    static int crossingBaboons = 0;
+    static object consoleLock = new object();
 
-    static void Main(string[] args)
+    static void Main()
     {
-        // Обработка входных данных
-        int numThreads = 5; // Значение по умолчанию
+        int totalBaboons = 10;
+        Thread[] baboons = new Thread[totalBaboons];
 
-        if (args.Length > 0)
+        for (int i = 0; i < totalBaboons; i++)
         {
-            if (int.TryParse(args[0], out numThreads) && numThreads >= 2 && numThreads <= 20)
-            {
-                // Валидное значение числа потоков
-            }
-            else
-            {
-                Console.WriteLine("Указано некорректное число потоков");
-                return;
-            }
+            baboons[i] = new Thread(BaboonCrossing);
+            baboons[i].Name = $"Baboon-{i + 1}";
+            baboons[i].Start();
         }
 
-        // Считывание массивов
-        Console.WriteLine("Введите элементы массива A:");
-        arrayA = ReadIntArray();
-
-        Console.WriteLine("Введите элементы массива C:");
-        arrayC = ReadIntArray();
-
-        // Создание и запуск потоков
-        Thread[] threads = new Thread[numThreads];
-
-        for (int i = 0; i < numThreads; i++)
+        for (int i = 0; i < totalBaboons; i++)
         {
-            int startIdx = i * arrayA.Length / numThreads;
-            int endIdx = (i + 1) * arrayA.Length / numThreads;
-
-            threads[i] = new Thread(() => CompareAndCount(startIdx, endIdx));
-            threads[i].Start();
+            baboons[i].Join();
         }
 
-        // Ожидание завершения потоков
-        foreach (var thread in threads)
-        {
-            thread.Join();
-        }
-
-        // Вывод окончательного результата
-        Console.WriteLine($"Количество пар, где элемент ai превосходит ci: {result}");
+        Console.WriteLine("Все бабуины успешно пересекли каньон.");
     }
 
-    static void CompareAndCount(int startIdx, int endIdx)
+    static void BaboonCrossing()
     {
-        for (int i = startIdx; i < endIdx; i++)
+        Random rand = new Random();
+        int baboonId = int.Parse(Thread.CurrentThread.Name.Split('-')[1]);
+
+        lock (consoleLock)
         {
-            if (arrayA[i] > arrayC[i])
-            {
-                lock (lockObject)
-                {
-                    result++;
-                }
-            }
+            Console.WriteLine($"Бабуин {baboonId} подошел к канату.");
         }
-    }
 
-    static int[] ReadIntArray()
-    {
-        string input = Console.ReadLine();
+        semaphore.Wait();
 
-        // Можно добавить обработку ошибок при вводе
-        return Array.ConvertAll(input.Split(' '), int.Parse);
+        lock (consoleLock)
+        {
+            Console.WriteLine($"Бабуин {baboonId} начал пересекать каньон.");
+        }
+
+        crossingBaboons++;
+
+        Thread.Sleep(rand.Next(1000, 3000));
+
+        crossingBaboons--;
+
+        semaphore.Release();
+
+        lock (consoleLock)
+        {
+            Console.WriteLine($"Бабуин {baboonId} успешно пересек каньон.");
+        }
     }
 }
